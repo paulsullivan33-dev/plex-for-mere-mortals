@@ -1,0 +1,30 @@
+t06 - a TV library: shows, seasons and episodes from folder shape
+Date: 2026-11-02T15:32:22+00:00
+
+Created exactly as the film library was, with the television
+pairing (the bundled TVDB agent and the series scanner):
+
+  POST /library/sections?name=TV&type=show
+       &agent=com.plexapp.agents.thetvdb&scanner=Plex%20Series%20Scanner
+       &language=en&location=.../media/tv
+  -> 201 Created   (this is section 3)
+
+The show took about 45 seconds to appear: the scan queues
+behind the same analysis pass described in t05.
+
+$ curl -s 'http://127.0.0.1:32400/library/sections/3/all' (the shows)
+- show: The Walnut Street Bakery | guid: local://8 | ratingKey: 8 | seasons (childCount): 1 | episodes (leafCount): 2
+
+$ curl -s 'http://127.0.0.1:32400/library/metadata/8/allLeaves' (the episodes)
+-  The Walnut Street Bakery | season 1 episode 1 | title: Episode 1 | guid: local://10
+     file: The Walnut Street Bakery - s01e01.mp4
+-  The Walnut Street Bakery | season 1 episode 2 | title: Episode 2 | guid: local://11
+     file: The Walnut Street Bakery - s01e02.mp4
+
+Nobody told Plex this was season 1, episodes 1 and 2, in so
+many words: the 'Season 01' folder and the s01e01 / s01e02 in
+the filenames are the whole message, and the scanner read
+them correctly. Episode titles are just the show name and
+numbers - with an invented programme there is no online
+episode list to borrow titles from, and the local:// guid
+says no online record was attached.

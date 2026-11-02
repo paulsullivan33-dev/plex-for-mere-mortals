@@ -1,0 +1,56 @@
+t07 - the API up close: item detail, a setting changed, a file served
+Date: 2026-11-02T15:32:32+00:00
+
+One item in full (trimmed to the load-bearing lines):
+$ curl -s 'http://127.0.0.1:32400/library/metadata/6'
+Video: title='The Clockwork Garden' year=2021 duration=5000 ms
+  Media: container=mp4 videoCodec=h264 audioCodec=aac 640x360
+  Part: id=6 size=312098 key=/library/parts/6/1793632830/file.mp4
+        file=/home/hatch/workspace/plex-labwork/media/movies/The Clockwork Garden (2021)/The Clockwork Garden (2021).mp4
+
+The Part key is the file's address inside Plex. Asking for it
+is how a client receives the media - here is the proof, byte
+for byte:
+$ curl -s 'http://127.0.0.1:32400/library/parts/6/1793632830/file.mp4' -o served-by-plex.mp4
+$ sha256sum served-by-plex.mp4 'media/movies/The Clockwork Garden (2021)/The Clockwork Garden (2021).mp4'
+6f51ab5a9674270522158cf73930f57842e96d53f391b2fd19151501f880da8f  served-by-plex.mp4
+6f51ab5a9674270522158cf73930f57842e96d53f391b2fd19151501f880da8f  media/movies/The Clockwork Garden (2021)/The Clockwork Garden (2021).mp4
+
+Identical hashes: the server hands out the exact file on disk.
+(A real client asks for ranges of it as it plays; a straight
+download is the simplest complete proof.)
+
+Settings live behind /:/prefs. One visible change:
+$ curl -s 'http://127.0.0.1:32400/:/prefs' | grep -o 'id="FriendlyName" value="[^"]*"'
+$ curl -s -X PUT 'http://127.0.0.1:32400/:/prefs?FriendlyName=Plex%20Lab' -o /dev/null -w '%{http_code}'
+200
+$ curl -s 'http://127.0.0.1:32400/' | grep -o 'friendlyName="[^"]*"'
+friendlyName="Plex Lab"
+$ grep -o 'FriendlyName="[^"]*"' 'support/Plex Media Server/Preferences.xml'
+FriendlyName="Plex Lab"
+
+And the quiet corners, honestly empty in a lab with no clients:
+$ curl -s 'http://127.0.0.1:32400/status/sessions'
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="0">
+</MediaContainer>
+$ curl -s 'http://127.0.0.1:32400/clients'
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="0">
+</MediaContainer>
+
+Addendum - ranged serving, and a restart (later in the session):
+
+A player does not fetch a whole file; it asks for slices. The
+server honours byte ranges on the same part address:
+
+$ curl -s -r 0-1023 'http://127.0.0.1:32400/library/parts/6/1793632830/file.mp4' -o range.bin -w '%{http_code} %{size_download}'
+206 1024
+$ sha256sum range.bin   ==   first 1024 bytes of the file on disk
+6330887186789aab850cbb0b8933f390ec870bdab59c2acce64e57b7b422aaaf  (both)
+
+The addendum was captured after the server had been stopped
+(t09) and started again the same way it was started in t02.
+Both libraries, all items and the new friendly name were still
+exactly where the shutdown had left them - the library lives in
+the support folder, and a restart is a non-event.

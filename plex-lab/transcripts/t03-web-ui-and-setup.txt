@@ -1,0 +1,40 @@
+t03 - the web app and the setup state, as far as headless goes
+Date: 2026-11-02T15:23:55+00:00
+
+$ curl -sI http://127.0.0.1:32400/web/
+HTTP/1.1 302 Moved Temporarily
+X-Plex-Protocol: 1.0
+Location: http://127.0.0.1:32400/web/index.html#!/setup/6b347c5ef9d44a72830310b64fdba029201bd2d3
+Cache-Control: public
+Content-Length: 0
+Connection: Keep-Alive
+
+$ curl -s http://127.0.0.1:32400/web/index.html -o web-index.html; wc -c web-index.html; grep -o '<title>[^<]*</title>' web-index.html
+30184
+<title>Plex</title>
+
+The web app is served in full by the server itself - it is not a
+download from plex.tv. In a browser on the local network, opening
+it on an unclaimed server starts the setup flow: name the server,
+then sign in to a Plex account to CLAIM it (bind it to the
+account). That sign-in is interactive and needs a real plex.tv
+account, so it cannot be done by this headless lab and is
+documented-only in the guide. What the lab can prove is the
+state on both sides of that line:
+
+$ curl -s http://127.0.0.1:32400/myplex/account
+<?xml version="1.0" encoding="UTF-8"?>
+<MyPlex username="" mappingState="unknown" mappingError="" reachabilityPending="0" signInState="none" subscriptionActive="0" subscriptionState="">
+</MyPlex>
+
+[http 200]
+
+$ grep -o 'FriendlyName="[^"]*"\|MachineIdentifier="[^"]*"\|ProcessedMachineIdentifier="[^"]*"' 'support/Plex Media Server/Preferences.xml'
+MachineIdentifier="b8a0077f-5f5f-4376-ac79-ccf74846f1e1"
+ProcessedMachineIdentifier="6b347c5ef9d44a72830310b64fdba029201bd2d3"
+MachineIdentifier="c00fca30-a332-4a13-bdf2-3ef0dfa6db5a"
+
+First run also leaves a help page in the support folder:
+$ ls -la 'support/Plex Media Server/Setup Plex.html' && grep -o '<title>[^<]*</title>' 'support/Plex Media Server/Setup Plex.html'
+-rw------- 1 root root 12216 Nov  2 15:20 support/Plex Media Server/Setup Plex.html
+<title>Launch Plex</title>

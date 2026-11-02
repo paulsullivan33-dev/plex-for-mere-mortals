@@ -1,0 +1,61 @@
+t04 - creating a library: the agent/scanner pairing lesson
+Date: 2026-11-02 (lab session)
+
+A library is created by one POST to /library/sections with the
+name, type, agent, scanner, language and folder as parameters.
+The interesting part is which agent/scanner pairs this unclaimed
+server will accept.
+
+Attempt 1 - form-encoded body instead of a query string:
+
+  POST /library/sections   (name, type, agent=tv.plex.agents.movie,
+                            scanner, language, location as form data)
+  -> 400 Bad Request
+
+Attempt 2 - query string, the current "Plex Movie" agent, language en:
+
+  POST /library/sections?name=Movies&type=movie
+       &agent=tv.plex.agents.movie&scanner=Plex%20Movie%20Scanner
+       &language=en&location=/home/hatch/workspace/plex-labwork/media/movies
+  -> 400
+  'language' is invalid
+  new scanner needs to be paired with new agent
+
+Attempt 3 - same, with language=en-US (the form the new agent wants):
+
+  -> 400
+  new scanner needs to be paired with new agent
+
+The new agent's identifier is real (it is in the server's own
+strings), but on a server that has never been claimed, its
+metadata provider is not active: GET /media/providers lists only
+the local library provider. The setup wizard's order - claim the
+server first, then build libraries - is not just a suggestion;
+the modern agent cannot be paired before the server has an
+account. That step needs an interactive plex.tv sign-in, so it is
+documented-only in this guide.
+
+Attempt 4 - the bundled legacy agent that ships inside the server
+(its plug-in process, com.plexapp.agents.imdb, was already running
+in t02's process list), language back to plain en:
+
+  POST /library/sections?name=Movies&type=movie
+       &agent=com.plexapp.agents.imdb&scanner=Plex%20Movie%20Scanner
+       &language=en&location=/home/hatch/workspace/plex-labwork/media/movies
+  -> 201 Created
+
+$ curl -s http://127.0.0.1:32400/library/sections
+section 2 | Movies | agent: com.plexapp.agents.imdb | scanner: Plex Movie Scanner
+   location: /home/hatch/workspace/plex-labwork/media/movies
+
+(The first successful create was named MoviesLegacy while the
+pairing was being worked out; renaming a section through this API
+is not offered - PUT and POST edits returned 400/404 - so the
+section was deleted and recreated with its final name. On a real
+server you would simply name it in the wizard.)
+
+What the legacy agent means in practice: it reads titles and
+years from filenames and can look films up online, but this
+server applied no online match to the invented titles - every
+item in t05 carries a local:// identifier, i.e. Plex is showing
+exactly what the filenames told it, nothing borrowed.

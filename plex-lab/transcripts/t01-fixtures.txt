@@ -1,0 +1,47 @@
+t01 - fixture media, generated with ffmpeg
+Date: 2026-11-02T15:20:29+00:00
+ffmpeg version: ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers
+
+Every fixture is a 5-second synthetic clip (test pattern video +
+a 440 Hz tone) wearing an invented title. The titles follow the
+naming shapes Plex expects: 'Name (Year)' for films, and
+'Show/Season 01/Show - s01e01' for television.
+
+$ plex-lab/make-fixtures.sh ~/workspace/plex-labwork/media
+fixtures written under /home/hatch/workspace/plex-labwork/media
+
+$ find media -type f | sort
+media/movies/A Field Guide to Clouds (2018)/A Field Guide to Clouds (2018).mp4
+media/movies/Harbour Lights (2024)/Harbour Lights (2024).mkv
+media/movies/The Clockwork Garden (2021)/The Clockwork Garden (2021).mp4
+media/tv/The Walnut Street Bakery/Season 01/The Walnut Street Bakery - s01e01.mp4
+media/tv/The Walnut Street Bakery/Season 01/The Walnut Street Bakery - s01e02.mp4
+
+$ ffprobe of one fixture of each kind (codec, size, duration):
+--- media/movies/The Clockwork Garden (2021)/The Clockwork Garden (2021).mp4
+codec_name=h264
+codec_type=video
+width=640
+height=360
+codec_name=aac
+codec_type=audio
+duration=5.000000
+size=312098
+--- media/movies/Harbour Lights (2024)/Harbour Lights (2024).mkv
+codec_name=h264
+codec_type=video
+width=640
+height=360
+codec_name=aac
+codec_type=audio
+duration=5.023000
+size=50326
+--- media/tv/The Walnut Street Bakery/Season 01/The Walnut Street Bakery - s01e01.mp4
+codec_name=h264
+codec_type=video
+width=640
+height=360
+codec_name=aac
+codec_type=audio
+duration=5.000000
+size=312098

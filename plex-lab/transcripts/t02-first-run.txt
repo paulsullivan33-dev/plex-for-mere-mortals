@@ -1,0 +1,58 @@
+t02 - first run: the server starts, unclaimed, and answers on loopback
+Date: 2026-11-02T15:23:46+00:00
+
+Plex's own web/API port is 32400 - that is the product's genuine
+default, so the lab uses it on loopback and the server is shut
+down when the lab ends (t08). No other port is used.
+
+Start (all state - database, logs, cache - inside the lab folder):
+
+  PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR=$LABWORK/support \
+  PLEX_MEDIA_SERVER_HOME=$LABWORK/root/usr/lib/plexmediaserver \
+  TMPDIR=$LABWORK/tmp \
+  "$PLEX_MEDIA_SERVER_HOME/Plex Media Server"
+
+$ ss -ltnp | grep 324
+LISTEN 0      0          127.0.0.1:32401      0.0.0.0:*    users:(("Plex Media Serv",pid=71293,fd=52))
+LISTEN 0      0            0.0.0.0:32400      0.0.0.0:*    users:(("Plex Media Serv",pid=71293,fd=51))
+
+$ curl -s http://127.0.0.1:32400/identity
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="0" apiVersion="1.2.3" claimed="0" machineIdentifier="6b347c5ef9d44a72830310b64fdba029201bd2d3" version="1.43.5.11079-b3b13e506">
+</MediaContainer>
+
+claimed="0": nobody owns this server yet. It has a machine
+identifier and a version (1.43.5.11079-b3b13e506 - the same as
+the package in t00), but it is not signed in to any account.
+
+$ curl -s http://127.0.0.1:32400/   (the root document, trimmed)
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="25" allowCameraUpload="0" allowChannelAccess="1" allowMediaDeletion="1" allowSharing="1" allowSync="0" allowTuners="0" apiVersion="1.2.3" backgroundProcessing="1" companionProxy="1" countryCode="" diagnostics="logs,databases,streaminglogs" eventStream="1" friendlyName="htch-runtime" hubSearch="1" itemClusters="1" livetv="7" machineIdentifier="6b347c5ef9d44a72830310b64fdba029201bd2d3" mediaProviders="1" multiuser="1" musicAnalysis="2" myPlex="1" myPlexMappingState="unknown" myPlexSigninState="none" myPlexSubscription="0" platform="Linux" platformVersion="7.0.0-39-generic (#1 SMP PREEMPT_DYNAMIC Thu Sep 24 08:42:15 UTC 2026)" pluginHost="1" pushNotifications="0" readOnlyLibraries="0" streamingBrainVersion="2" sync="1" transcoderActiveVideoSessions="0" transcoderAudio="1" transcoderLyrics="1" transcoderPhoto="1" transcoderSubtitles="1" transcoderVideo="1" transcoderVideoBitrates="64,96,208,320,720,1500,2000,3000,4000,8000,10000,12000,20000" transcoderVideoQualities="0,1,2,3,4,5,6,7,8,9,10,11,12" transcoderVideoResolutions="128  [... trimmed ...]
+
+From that document, the fields the guide relies on:
+  friendlyName     = htch-runtime   (taken from the machine's hostname)
+  myPlexSigninState = none
+  myPlexMappingState = unknown     (no remote-access mapping exists)
+  transcoderVideo  = 1             (the video transcoder is present)
+
+$ curl -s http://127.0.0.1:32400/library/sections
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="0" allowSync="0" title1="Plex Library">
+</MediaContainer>
+
+An empty library: MediaContainer size 0. No token was asked for -
+while the server is unclaimed, loopback requests are trusted.
+
+First lines of the server's own log
+(support/Plex Media Server/Logs/Plex Media Server.log):
+Nov 02, 2026 15:20:47.195 [129801021016888] INFO - Plex Media Server v1.43.5.11079-b3b13e506 - unknown PC unknown - build: linux-x86_64 debian - GMT 0
+Nov 02, 2026 15:20:47.195 [129801021016888] INFO - Linux version: 7.0.0-39-generic (#1 SMP PREEMPT_DYNAMIC Thu Sep 24 08:42:15 UTC 2026), language: en
+Nov 02, 2026 15:20:47.292 [129801128184464] DEBUG - HttpServer: Listening on port 32400.
+Nov 02, 2026 15:20:47.292 [129801128184464] DEBUG - HttpServer: Listening on port 32401.
+
+One honest warning from that log, seen repeatedly:
+Nov 02, 2026 15:21:03.956 [129800972118840] WARN - NetworkServiceBrowser: Error sending out discover packet from 127.0.0.1 to 127.255.255.255: Operation not permitted
+Discovery beacons are UDP broadcasts; this sandbox permits no
+UDP, so automatic discovery cannot work here. Clients on a real
+home network would find the server by that beacon; here we use
+the address directly. Nothing else in the lab needs UDP.

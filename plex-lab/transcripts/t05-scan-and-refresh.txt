@@ -1,0 +1,71 @@
+t05 - scanning: what the scanner found, and adding a file
+Date: 2026-11-02T15:25:39+00:00
+
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/all' (titles only)
+container size: 3
+- The Clockwork Garden | year: 2021 | guid: local://6
+- A Field Guide to Clouds | year: 2018 | guid: local://4
+- Harbour Lights | year: 2024 | guid: local://5
+
+All three films are in, titled and dated from their filenames
+alone, each with a local:// guid - no online record was attached
+to these invented films.
+
+Now a fourth film appears in the folder, the way a download or
+a copy would land there:
+
+$ ffmpeg ... 'movies/Paper Boats (2016)/Paper Boats (2016).mp4' (5 s rgb test pattern + tone)
+total 52
+drwxrwx--- 1 root root    44 Nov  2 15:25 .
+drwxrwx--- 1 root root   192 Nov  2 15:25 ..
+-rw-rw---- 1 root root 52773 Nov  2 15:25 Paper Boats (2016).mp4
+
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/refresh' -o /dev/null -w '%{http_code}'
+200
+
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/all' (after refresh)
+container size: 3
+- The Clockwork Garden | year: 2021 | guid: local://6
+- A Field Guide to Clouds | year: 2018 | guid: local://4
+- Harbour Lights | year: 2024 | guid: local://5
+
+Addendum - why the first refresh seemed to do nothing (same session):
+
+The first refresh answered 200, but no scan of the new folder
+appears in the scanner's log, and the film did not arrive. The
+scanner was still busy with the analysis pass of the original
+scan, and that pass was stuck on something this sandbox cannot
+give it. From support/Plex Media Server/Logs/Plex Media Scanner.log:
+
+  INFO  - CodecManager: obtaining decoder 'h264'
+  DEBUG - HTTP requesting GET https://servers.plex.tv/api/codecs/h264_decoder?build=linux-x86_64-standard&deviceId=...
+  WARN  - HTTP error requesting GET https://servers.plex.tv/api/codecs/h264_decoder?...
+  ERROR - Codecs: Failed to download XML for codec 'h264_decoder'
+  ERROR - CodecManager: failed to install codec for h264
+
+Plex does not ship every codec in the package; some are fetched
+on demand from servers.plex.tv the first time media analysis
+needs them. This sandbox's network rules refuse that fetch, so
+analysis retried (27 failures over about three minutes) before
+giving up on each file. The library items themselves were never
+in doubt - only the deep analysis (thumbnails and friends) was
+queued behind the retries.
+
+Once the queue drained, a second refresh did in about a second
+what the first could not:
+
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/refresh'   (again)
+  Scanner log: Processing directory .../movies/Paper Boats (2016)
+  Scanner log: Added new metadata item (Paper Boats) with ID 7
+
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/all' (now)
+container size: 4
+- The Clockwork Garden | year: 2021 | guid: local://6
+- A Field Guide to Clouds | year: 2018 | guid: local://4
+- Harbour Lights | year: 2024 | guid: local://5
+- Paper Boats | year: 2016 | guid: local://7
+
+On a home network the codec arrives on first use and none of
+this is visible; the lesson that survives is that a scan has two
+halves - finding files (fast, local) and analysing them (can
+reach the network) - and only the first half is guaranteed.

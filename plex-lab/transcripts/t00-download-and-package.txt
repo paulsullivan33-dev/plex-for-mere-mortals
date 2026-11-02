@@ -1,0 +1,56 @@
+t00 - download, checksum, package contents
+Date: 2026-11-02T15:20:03+00:00
+Machine: Ubuntu 24.04.5 LTS, x86_64, 4 CPUs
+
+$ curl https://plex.tv/api/downloads/5.json  (Linux section, linux-x86_64/debian release)
+version: 1.43.5.11079-b3b13e506
+url: https://downloads.plex.tv/plex-media-server-new/1.43.5.11079-b3b13e506/debian/plexmediaserver_1.43.5.11079-b3b13e506_amd64.deb
+published sha1 checksum: a0a0b8fa92aeea65128af07b7c6cffc994ab8795
+
+$ sha1sum dl/plexmediaserver_1.43.5.11079-b3b13e506_amd64.deb
+a0a0b8fa92aeea65128af07b7c6cffc994ab8795  dl/plexmediaserver_1.43.5.11079-b3b13e506_amd64.deb
+(checksums match; file size 83265934 bytes)
+
+$ dpkg-deb -I dl/plexmediaserver_1.43.5.11079-b3b13e506_amd64.deb | head -20
+ new Debian package, version 2.0.
+ size 83265934 bytes: control archive=74092 bytes.
+     293 bytes,     9 lines      control
+  347193 bytes,  2482 lines      md5sums
+   17980 bytes,   529 lines   *  postinst             #!/bin/bash
+     556 bytes,    27 lines   *  postrm               #!/bin/sh
+   25763 bytes,   778 lines   *  preinst              #!/bin/bash
+     692 bytes,    31 lines   *  prerm                #!/bin/sh
+ Package: plexmediaserver
+ Version: 1.43.5.11079-b3b13e506
+ Architecture: amd64
+ Maintainer: Plex Inc <noreply@plex.tv>
+ Installed-Size: 218092
+ Section: video
+ Priority: optional
+ Homepage: https://plex.tv
+ Description: Plex organizes all of your personal media so you can easily access and enjoy it.
+
+The lab sandbox has no systemd and the guide build rules keep every
+write inside the lab folder, so instead of dpkg -i the lab unpacks
+the same .deb and runs the unmodified server from the unpacked tree:
+
+$ dpkg-deb -x dl/plexmediaserver_1.43.5.11079-b3b13e506_amd64.deb root/
+
+$ ls root/usr/lib/plexmediaserver/
+CrashUploader
+Plex Commercial Skipper
+Plex DLNA Server
+Plex Media Fingerprinter
+Plex Media Scanner
+Plex Media Server
+Plex Relay
+Plex SQLite
+Plex Script Host
+Plex Transcoder
+Plex Tuner Service
+Resources
+etc
+lib
+
+$ du -sh root/usr/lib/plexmediaserver
+218M	root/usr/lib/plexmediaserver

@@ -1,0 +1,53 @@
+t09 - failure cases and shutting down
+Date: 2026-11-02T15:37:23+00:00
+
+Failure 1 - a library folder that does not exist:
+$ curl -s -X POST 'http://127.0.0.1:32400/library/sections?name=Nowhere&type=movie&agent=com.plexapp.agents.imdb&scanner=Plex%20Movie%20Scanner&language=en&location=/home/hatch/workspace/plex-labwork/media/no-such-folder' -w ' [%{http_code}]'
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="1">
+<Directory key="4" type="movie" title="Nowhere" agent="com.plexapp.agents.imdb" scanner="Plex Movie Scanner" language="en" uuid="03997a10-2124-44e5-9e72-c3a9101de7e9" updatedAt="1793633843" createdAt="1793633843" content="1" directory="1" contentChangedAt="-1" hidden="0">
+<Location id="4" path="/home/hatch/workspace/plex-labwork/medi
+Failure 2 - a file vanishes from a healthy library.
+Paper Boats (added in t05) is deleted from disk, then the
+library is refreshed:
+$ rm -rf 'media/movies/Paper Boats (2016)'
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/refresh' -o /dev/null -w '%{http_code}'
+200
+$ curl -s 'http://127.0.0.1:32400/library/sections/2/all'
+container size: 3
+- The Clockwork Garden
+- A Field Guide to Clouds
+- Harbour Lights
+$ grep -i 'paper boats' 'support/Plex Media Server/Logs/Plex Media Server.log' | tail -2
+Nov 02, 2026 15:31:27.688 [129800997866296] DEBUG - [Req#302] Item 7 (Paper Boats) Scanning metadata graphic elements in XML file ""/Info.xml
+Nov 02, 2026 15:31:27.696 [129800997866296] DEBUG - [Req#302] Loaded metadata for Paper Boats (ID 7) in 14ms
+
+The surprise in failure 1: creation SUCCEEDED. Plex does not
+check that a library folder exists when you name it - the
+section simply has nothing in it:
+$ curl -s 'http://127.0.0.1:32400/library/sections/4/all'
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="0" allowSync="1" art="/:/resources/movie-fanart.jpg" identifier="com.plexapp.plugins.library" librarySectionID="4" librarySectionTitle="Nowhere" librarySectionUUID="03997a10-2124-44e5-9e72-c3a9101de7e9" mediaTagPrefix="/system/bundle/media/flags/" mediaTagVersion="1792751798" thumb="/:/resources/movie.png" title1="Nowhere" title2="All Nowhere" viewGroup="movie" viewMode="65592">
+</MediaContainer>
+$ curl -s -X DELETE 'http://127.0.0.1:32400/library/sections/4' -o /dev/null -w '%{http_code}'  (tidying the empty section away)
+200
+
+And failure 2's ending: with 'empty trash automatically after
+every scan' at its default, the vanished film is not kept as a
+greyed-out placeholder - one refresh and it is out of the
+library entirely (size back to 3 above). The file's metadata
+goes with it; restoring the file and refreshing would bring
+it back as a fresh item.
+
+Shutdown - the whole lab ends with the server:
+$ cat 'support/Plex Media Server/plexmediaserver.pid' -> 71293
+$ kill 71293   (SIGTERM, the polite request)
+$ curl -s -m 4 http://127.0.0.1:32400/identity -o /dev/null -w '%{http_code}'
+000
+(connection refused - the server is down)
+$ ps aux | grep -i plex | grep -v grep | wc -l
+0
+$ tail -3 'support/Plex Media Server/Logs/Plex Media Server.log'
+Nov 02, 2026 15:37:38.786 [129801128184464] DEBUG - Signalling job ID 92319 with 9
+Nov 02, 2026 15:37:38.786 [129801128184464] DEBUG - Database: Shutting down.
+Nov 02, 2026 15:37:38.893 [129801128184464] DEBUG - Database: Shutting down.

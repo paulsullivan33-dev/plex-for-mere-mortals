@@ -1,0 +1,124 @@
+t08 - the transcoder: decisions, a codec hunt, and a real conversion
+Date: 2026-11-02 (lab session)
+
+Transcoding has two halves in Plex: deciding (can this client
+play this file as it is, and if not, what should it become?) and
+converting. Both were exercised against The Clockwork Garden
+(640x360 H.264 + AAC, about 500 kbit/s all-in).
+
+1. The image transcoder works out of the box
+
+Every poster and backdrop a client shows is resized by the photo
+transcoder. Asked for the server's own show placeholder at 64x64:
+
+  GET /photo/:/transcode?width=64&height=64&minSize=1&upscale=1
+      &url=%2F%3A%2Fresources%2Fshow.png
+  -> 200, 3979 bytes, a 64x64 PNG
+
+But the film's own poster address, advertised in its metadata
+(thumb="/library/metadata/6/thumb/1793633335"), answered 404:
+no thumbnail had ever been generated. Analysis could not decode
+the video to grab a frame. Remember that; it is the same story
+as everything below.
+
+2. The decision needs a believable client
+
+  GET /video/:/transcode/universal/decision?...   (no client headers)
+  -> 400, and the server log says why:
+  "Unable to find client profile for device; platform=Linux..."
+  "TranscodeUniversalRequest: unable to find a matching profile"
+
+The server ships client profiles (Resources/Profiles/*.xml -
+Chrome.xml, Firefox.xml, and dozens more). Declaring a Chrome
+web client (X-Plex-Platform: Chrome and friends) fixed it:
+
+  GET /video/:/transcode/universal/decision?hasMDE=1
+      &path=/library/metadata/6&directPlay=0&maxVideoBitrate=200...
+  -> 200
+  directPlayDecisionCode="3000" "App cannot direct play this item.
+       Direct play is disabled."
+  generalDecisionCode="1001"  "Direct play not available; Conversion OK."
+  transcodeDecisionCode="1001" "Direct play not available; Conversion OK."
+
+Two traps were met on the way: maxVideoBitrate is in kbit/s, so
+maxVideoBitrate=1 asks for the impossible and the decision is
+"Not enough bandwidth for any playback of this item"; and a
+start request with no preceding decision for the session is
+refused with 400 - real clients always ask first, then start.
+
+3. The session starts, then dies on a missing codec
+
+  GET /video/:/transcode/universal/start.m3u8?... (after decision)
+  -> 200
+  #EXTM3U
+  #EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=140000,RESOLUTION=160x90,FRAME-RATE=24
+  session/<id>/base/index.m3u8
+
+The offer is a 160x90 stream at 140 kbit/s - the 200 kbit/s cap
+made the server downscale the 640x360 source, as designed. But
+fetching the session playlist gave 500, and the log showed the
+transcoder asking CodecManager for decoder 'h264', trying to
+download it from servers.plex.tv, and failing under this
+sandbox's network rules - the same wall as the scanner in t05.
+
+4. The codecs can be fetched by hand - and verified
+
+The log line contains the whole request URL. Following it with
+curl (which the sandbox does allow) returns a small document:
+
+  <MediaContainer title="Codec Downloads" codec="h264_decoder"
+      version="a336ba9-16a9aaf440ee9a92b75f070b">
+    <Codec url="https://downloads.plex.tv/codecs/a336ba9-.../
+                linux-x86_64-standard/libh264_decoder.so"
+           fileSha="dbabce05a044226113a22e25b4b39836cca9fc73" .../>
+
+  $ sha1sum libh264_decoder.so
+  dbabce05a044226113a22e25b4b39836cca9fc73   <- matches Plex's own hash
+
+Placed in the folder the server expects -
+support/Plex Media Server/Codecs/<version>-linux-x86_64/ -
+the codec is picked up with no restart. Four were needed, each
+unblocking the next step of the same session request, and each
+was hash-checked the same way:
+
+  libh264_decoder.so      (decode the video)
+  libaac_decoder.so       (decode the audio)
+  liblibx264_encoder.so   (encode the smaller video)
+  liblibmp3lame_encoder.so (encode the stream's audio as MP3)
+
+On an ordinary home network the server fetches these itself,
+once, the first time they are needed, and nobody ever sees this.
+The lab records it because a filtered or offline network is
+exactly where a reader would meet the failure.
+
+5. The conversion, proven
+
+With the four codecs in place, decision -> start -> playlist:
+
+  GET /video/:/transcode/universal/session/<id>/base/index.m3u8
+  -> 200
+  #EXTM3U
+  #EXT-X-TARGETDURATION:8
+  #EXTINF:5, nodesc
+  00000.ts
+  #EXT-X-ENDLIST
+
+  GET .../base/00000.ts  -> 200, 129908 bytes
+  $ ffprobe 00000.ts
+  video: h264, 160x90        (source: h264, 640x360)
+  audio: mp3                 (source: aac)
+  duration: 5.02 s           (source: 5.00 s)
+
+A genuine transcode: smaller picture, different audio codec,
+same five seconds. The session was then stopped politely
+(GET /video/:/transcode/universal/stop -> 200).
+
+6. Postscript: the poster appears
+
+  PUT /library/metadata/6/analyze  -> 200
+  GET /library/metadata/6/thumb/1793633335
+  -> 200, 15571 bytes: JPEG image data, 640x360
+
+With a decoder available, analysis grabbed a real frame for the
+poster - the 404 from step 1 is gone. One missing download had
+been quietly disabling posters, analysis and conversion alike.

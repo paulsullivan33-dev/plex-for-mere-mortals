@@ -1,0 +1,27 @@
+site_name: Plex for Mere Mortals
+site_description: Your own media server, run from your own machine. Installing Plex Media Server, building libraries from well named files, scanning and serving films and programmes to every screen in the house, and how the transcoder decides what each client gets, with the account and subscription lines stated plainly.
+site_url: https://paulsullivan33-dev.github.io/plex-for-mere-mortals/
+copyright: 'Part of <a href="https://paulsullivan33-dev.github.io/mere-mortals/">For Mere Mortals</a> · Text <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, code MIT'
+
+# Guides live at the repo root (nice for GitHub browsing).
+# The deploy workflow copies them into docs/ before building.
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - What Plex Is: what-plex-is.md
+  - The Moving Parts: the-moving-parts.md
+  - Installing Plex Media Server: installing-plex.md
+  - First Run and Claiming Your Server: first-run-and-claiming.md
+  - Organising Your Files: organising-your-files.md
+  - Libraries and Scanning: libraries-and-scanning.md
+  - Watching and Listening: watching-and-listening.md
+  - The Transcoder: the-transcoder.md
+  - Users, Sharing and Remote Access: users-sharing-and-remote-access.md
+  - Recipes: recipes.md
+  - The Neighbours: the-neighbours.md
+  - Limits: limits.md
+  - Troubleshooting: troubleshooting.md
+  - Glossary: glossary.md
+  - Writing Criteria: criteria.md
